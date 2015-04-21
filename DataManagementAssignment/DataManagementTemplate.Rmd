@@ -259,3 +259,4 @@ library(moonBook)
 out <- mytable(Depression + TobaccoDependence ~  Age + SmokingFreq + DailyCigsSmoked + Ethnicity + Sex +DaysSmoke + TotalCigsSmoked + CigsSmokedFac , data = nesarc.sub)
 myhtml(out)
 ```
+

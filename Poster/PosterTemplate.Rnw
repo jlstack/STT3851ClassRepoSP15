@@ -24,6 +24,7 @@
 
 %-- Main Document --------------------------------------------------
 \begin{document}
+\SweaveOpts{concordance=TRUE}
 \begin{frame}[fragile]
 \vspace{-2ex}
 \begin{columns}[t]

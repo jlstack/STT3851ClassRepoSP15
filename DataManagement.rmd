@@ -1,0 +1,189 @@
+---
+title: "Wealth and Education's Effect on Life Expectancy"
+output: html_document
+---
+
+```{r SETUP, echo = FALSE, message = FALSE, comment = NA}
+library(dplyr)
+library(knitr)
+require(ggplot2)
+require(grid)
+library(xlsx)
+library(Hmisc)
+opts_chunk$set(comment = NA, cache = FALSE, fig.height = 7, fig.width = 7, message = FALSE, 
+  warning = FALSE,fig.align = 'center', tidy = TRUE)
+DT <- format(Sys.time(), "%A, %B %d, %Y - %X")
+path = "/Users/lukestack/jlstackSTT3851ClassRepoSP15/Data/PDSdata/Gapminder/gapminder.csv"
+wpath = "/Users/lukestack/jlstackSTT3851ClassRepoSP15/Data/Years in school women 25 plus.xlsx"
+mpath = "/Users/lukestack/jlstackSTT3851ClassRepoSP15/Data/Years in school men 25 plus.xlsx"
+```
+This work was last compiled on `r DT`.
+
+#Purpose of Study
+
+I hope to figure out the effects of education and wealth on life expectancy. I hypothesize that the study will show that the more education a nation has, the better their GDP, and the longer their life expectancy. In short, I expect education, wealth, and health to all be positively correlated. I suspect this is the case, because my references show that wealth and health are positively correlated. It has also been shown that salaries are positively correlated with education. This leads me to suspect that the more education a person has, the longer they are expected to live.
+
+#Variables
+
+Variables from Gapminder that will be used include: incomeperperson (measured by the value of the American dollar in the year 2000), lifeexpectancy (the predicted number of years a newborn would live if the current mortality patterns were to remain the same), X2000 (mean years in school will be measured for men and women above the age of 25 for the year 2000). My two categorical variables are created using X2000 for both males and females. Incomeperperson and lifeexpectancy will remain quantitative variables.
+
+#Data Management
+```{r}
+wschool = read.xlsx(wpath, 1)
+mschool = read.xlsx(mpath, 1)
+DF = read.csv(file = path)
+```
+
+##Renaming Variables
+
+```{r}
+WS = wschool %>%
+  rename(co = Row.Labels) %>%
+  rename(wschool = X2000) %>%
+  select(co, wschool)
+MS = mschool %>%
+  rename(co = Row.Labels) %>%
+  rename(mschool = X2000) %>%
+  select(co, mschool)
+DF = DF %>%
+  rename(co = country) %>%
+  rename(life = lifeexpectancy) %>%
+  rename(income = incomeperperson) %>%
+  select(co, life, income)
+df = merge(WS,MS, by="co")
+df = merge(DF, df)
+summary(df)
+```
+
+I made many of the names shorter for the variables to make them easier to work with. X2000 also had to be changed to a name that made since for both males and females.
+
+##Removing Missing Values
+
+```{r}
+sum(is.na(df)) #NA's presented from the beginning
+df = df[complete.cases(df),]
+sum(is.na(df)) #NA's present afterwards
+```
+
+I removed all incomplete cases. I wanted all variables for each country to have a valid entry to be apart of the study.
+
+##Creating New Variables
+
+```{r}
+lifeproportions <- quantile(df$life, na.rm = TRUE)
+df$lifecat <- cut(df$life, breaks = lifeproportions, include.lowest = TRUE)
+incomeproportions <- quantile(df$income, na.rm = TRUE)
+df$incomecat <- cut(df$income, breaks = incomeproportions, include.lowest = TRUE)
+df$wschoolcat <- cut(df$wschool, breaks = c(0, 5, 10, max(df$wschool)), include.lowest = TRUE)
+df$mschoolcat <- cut(df$mschool, breaks = c(0, 5, 10, max(df$mschool)), include.lowest = TRUE)
+```
+For my two categorical variables I have mean years in school for males and mean years in school for females. I broke both of these into three groups (less than 5 years, 5 - 10 years, and over 10 years).
+
+##Labeling Variables
+
+```{r}
+df$lifecat <- factor(df$lifecat, 
+                              labels = c("62.5 or less Years", "62.5 to 72.8 Years",
+                                         "72.8 to 75.9 Years","75.9+ Years"))
+df$incomecat <- factor(df$incomecat, 
+                              labels = c("$606 or less", "$606 to 2222",
+                                         "$2222 to $6398","$6398+"))
+df$wschoolcat <- factor(df$wschoolcat, 
+                              labels = c("0-5 Years", "5-10 Years", "10+ Years"))
+df$mschoolcat <- factor(df$mschoolcat, 
+                              labels = c("0-5 Years", "5-10 Years", "10+ Years"))
+```
+
+##Creating Tables
+
+```{r}
+xtabs(~wschoolcat, data = df)
+xtabs(~mschoolcat, data = df)
+```
+
+##Graphing Frequency Tables
+
+```{r}
+g1 <- ggplot(data = na.omit(df), aes(x = mschoolcat)) +
+  geom_bar(fill = "blue") + labs(x = "Mean Years of Schooling", y = "Total Number", title = "Mean Education for Male Adults") + theme(axis.text.x  = element_text(angle = 75, vjust = 0.5)) 
+g2 <- ggplot(data = na.omit(df), aes(x = wschoolcat)) +
+  geom_bar(fill = "deeppink") + labs(x = "Mean Years of Schooling", y = "Total Number", title = "Mean Education for Female Adults") + theme(axis.text.x  = element_text(angle = 75, vjust = 0.5)) 
+pushViewport(viewport(layout = grid.layout(2, 1)))
+print(g1, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(g2, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+```
+
+I broke mean education into three catagories, and made barplots to give an idea of the distribution. The first is for men and the second, for women.
+
+##Graphing Numeric Variables
+
+```{r}
+pS1 = ggplot(df, aes(x = income, y = ..density..)) +
+  geom_histogram(fill = "blue", alpha = .8) + 
+  geom_density(fill = "green", alpha = .4) +
+  geom_vline(xintercept = median(df$income), color = "red", lty = "dashed") + 
+  labs(title = "Income Per Person" , x = "US Dollars in Year 2000", y = "Density")
+pS2 = ggplot(df, aes(x = life, y = ..density..)) +
+  geom_histogram(fill = "blue", alpha = .8) + 
+  geom_density(fill = "green", alpha = .4) +
+  geom_vline(xintercept = median(df$life), color = "red", lty = "dashed") + 
+  labs(title = "Life Expectancy" , x = "Years", y = "Density")
+pushViewport(viewport(layout = grid.layout(2, 1)))
+print(pS1, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(pS2, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+```
+
+Above are histograms with overlayed density plots for both income per person and life expectancy.
+
+##The 3 S's
+
+```{r}
+incomeMedian = median(df$income)
+lifeMedian = median(df$life)
+incomeIQR = IQR(df$income)
+lifeIQR = IQR(df$life)
+```
+Since both graphs were skewed, I used median to determine the center and the interquartile range for the spread. Income Per Person's median was **`r incomeMedian`** and it's IQR was **`r incomeIQR`**. Life Expectancy's median was **`r lifeMedian`** and it's IQR was **`rlifeIQR`**.
+
+##Bivariate and Multivariate Graphing
+
+```{r}
+p1 = ggplot(df, aes(income, life)) + geom_point(colour = "red", size = 2) + geom_smooth(se = FALSE) +
+  labs(title = "Life Expectancy vs Income", x = "Income Per Person",  y = "Life Expectancy") 
+p2 = ggplot(df, aes(mschool, life)) + geom_point(colour = "blue", size = 2) + geom_smooth(se = FALSE) +
+  labs(title = "Life Expectancy vs Men's Education", x = "Mean Years of School",  y = "Life Expectancy")
+p3 = ggplot(df, aes(wschool, life)) + geom_point(colour = "deeppink", size = 2) + geom_smooth(se = FALSE) +
+  labs(title = "Life Expectancy vs Women's Education", x = "Mean Years of School",  y = "Life Expectancy")
+pushViewport(viewport(layout = grid.layout(2, 2)))
+print(p1, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(p2, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+print(p3, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+```
+You can see the relationship between income per person and life expectancy in the first scatter plot, mean years of schooling for men and life expectancy in the second plot, and mean years of schooling for women and life expectancy in the third. On all three a line of best fit is displayed.
+
+```{r}
+g1 <- ggplot(data = df, aes(x = lifecat, fill = incomecat)) +
+  geom_bar(position = "fill") + 
+  labs(x = "", y = "", title = "Income Per Person vs Life Expectancy") + 
+  scale_fill_discrete(name="Income Per Person") + theme(axis.text.x = element_text(angle = 75, vjust = 0.5))
+g1
+```
+
+Above is a bar plot that displays the relationship between the quantiles for both income per person and life expectancy. 
+
+```{r}
+p1 = ggplot(df, aes(income, life)) + geom_point(colour = "blue", size = 2) + geom_smooth(se = FALSE) +
+  labs(title = "Life Expectancy vs Income", x = "Income Per Person",  y = "Life Expectancy") + 
+  facet_grid(. ~ mschoolcat) +
+  labs(title = "Life Expectancy in Relation to Income and Schooling for Men", x = "Income Per Person in US Dollars from the Year 2000") + theme(axis.text.x  = element_text(angle = 75, vjust = 0.5)) 
+p2 = ggplot(df, aes(income, life)) + geom_point(colour = "deeppink", size = 2) + geom_smooth(se = FALSE) +
+  labs(title = "Life Expectancy vs Income", x = "Income Per Person",  y = "Life Expectancy") + 
+  facet_grid(. ~ wschoolcat) +
+  labs(title = "Life Expectancy in Relation to Income and Schooling for Women", x = "Income Per Person in US Dollars from the Year 2000") + theme(axis.text.x  = element_text(angle = 75, vjust = 0.5)) 
+pushViewport(viewport(layout = grid.layout(2, 1)))
+print(p1, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(p2, vp = viewport(layout.pos.row = 2, layout.pos.col = 1))
+```
+
+If you look back, I took the scatter plot with income per person and life expectancy and used mean years of education as a facet. I did mean years of education separately for men and women because I thought it gave a better visual. There are still three variables being used for each graph though, so it is still multivariate. There are just two of them.
+
